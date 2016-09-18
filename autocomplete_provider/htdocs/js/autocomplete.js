@@ -17,7 +17,7 @@ jQuery(document).ready(function ($) {
             });
         });
 
-        $('#comment').textcomplete(strategies, {
+        $('.wikitext').textcomplete(strategies, {
             listPosition: function (pos) {
                 this.$el.css({
                     top: pos.top - parseInt($('body').css('margin-top'), 10),
