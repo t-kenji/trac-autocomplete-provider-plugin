@@ -24,24 +24,6 @@ class AutocompleteProvider(Component):
 
     adapters = ExtensionPoint(IStrategyAdapter)
 
-    """
-    strategies = [
-        {
-            'id': 'mension',
-            'match': '/\B@(\w*)$/',
-            'candidates': [
-                'ktakahashi',
-                'ttomimoto',
-                'mhirobe',
-                'hnishitai'
-            ],
-            'template': 'function(mension) { return mension; }',
-            'replace': 'function(mension) { return "@" + mension + " "; }',
-            'index': 1
-        }
-    ]
-    """
-
     def __init__(self):
         self.strategies = []
 
