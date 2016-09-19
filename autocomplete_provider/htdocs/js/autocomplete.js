@@ -7,7 +7,7 @@ jQuery(document).ready(function ($) {
             match: new RegExp(strategy.match),
             search: function (term, callback) {
                 callback($.map(strategy.candidates, function (word) {
-                    return word.indexOf(term) === 0 ? word : null;
+                    return word.indexOf(term) !== -1 ? word : null;
                 }));
             },
             template: new Function('value', strategy.template),
