@@ -5,9 +5,9 @@ import re
 from genshi.builder import tag
 
 from trac.core import *
-from trac.web.api import IRequestFilter, IRequestHandler
+from trac.web.api import IRequestFilter
 from trac.web.chrome import ITemplateProvider, \
-                            add_script, add_stylesheet
+                            add_script, add_script_data, add_stylesheet
 
 from api import IStrategyAdapter
 
@@ -15,9 +15,7 @@ class AutocompleteProvider(Component):
     """
     Allows for autocomplete in textarea  from https://github.com/yuku-t/jquery-textcomplete
     """
-    implements(IRequestFilter,
-               IRequestHandler,
-               ITemplateProvider)
+    implements(IRequestFilter, ITemplateProvider)
 
     JS_DIR = 'autocomplete/js'
     CSS_DIR = 'autocomplete/css'
@@ -31,20 +29,6 @@ class AutocompleteProvider(Component):
             strategy = adapter.add_strategy()
             if strategy:
                 self.strategies.append(strategy)
-
-    # IRequestHandler methods
-
-    def match_request(self, req):
-        match = re.match(r'^/[\w\-/]+/autocomplete/js/autocomplete_dist\.js$', req.path_info)
-        return match
-
-    def process_request(self, req):
-        script = 'function getStrategies() { return ['
-        for i in self.strategies:
-            script += '{{ id: "{id}", match: {match}, candidates: {candidates}, template: {template}, replace: {replace}, index: {index} }},'.format(**i)
-        script += ']; }'
-        
-        req.send(script, 'text/javascript')
 
     # ITemplateProvider methods
 
@@ -62,8 +46,10 @@ class AutocompleteProvider(Component):
         return handler
 
     def post_process_request(self, req, template, data, content_type):
-        if template is not None and template in ('ticket.html'):
+        if template is not None and template in ('ticket.html', 'bs_ticket.html',
+                                                 'wiki_edit.html', 'bs_wiki_edit.html'):
             add_stylesheet(req, self.CSS_DIR + '/autocomplete.css')
             add_script(req, self.JS_DIR + '/jquery.textcomplete.min.js')
             add_script(req, self.JS_DIR + '/autocomplete.js')
+            add_script_data(req, { 'strategy_data': self.strategies })
         return template, data, content_type
