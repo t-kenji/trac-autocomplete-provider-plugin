@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Flexible autocomplete test</title>
+    <link rel="stylesheet" href="./css/jquery-ui.css">
+    <style>
+    .flexcomplete-container {
+      position: relative;
+      display: inline-block;
+      border: 1px solid #bcbec0;
+      margin: 0 5px 0 0;
+      font-size: 0.925em;
+    }
+    .flexcomplete-container .flexcomplete-container__arrow {
+      position: absolute;
+      width: 20px;
+      height: 100%;
+      top: 0;
+      right: 0;
+      cursor: pointer;
+    }
+    .flexcomplete-container .flexcomplete-container__arrow b {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 0;
+      height: 0;
+      margin: -2px 0 0 -4px;
+      border-color: #888 transparent transparent transparent;
+      border-style: solid;
+      border-width: 5px 4px 0 4px;
+    }
+    .flexcomplete-list {
+      background-color: #fff;
+      /*border: 1px solid #bcbec0;*/
+      /*margin: 0 5px 0 0;*/
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      display: inline-block;
+      cursor: text;
+      font-size: 1em;
+      font-family: Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      overflow-y: auto;
+    }
+    .flexcomplete-list li {
+      display: block;
+      float: left;
+      overflow: hidden;
+      margin: 2px 2px 0;
+      padding: 2px 3px;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      color: #5b9bcd;
+      background-color: #e5eff7;
+      border: #a9cae4 solid 1px;
+      border-radius: 2px;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.75) inset;
+      line-height: 20px;
+      cursor: default;
+    }
+    .flexcomplete-list li.flexcomplete-selected {
+      background-color: #bdd6eb;
+    }
+    .flexcomplete-list li a {
+      font-size: 1.0em;
+      color: #5b9bcd;
+      padding: 1px;
+      text-decoration: none;
+      outline: none;
+    }
+    .flexcomplete-list li.flexcomplete-input {
+      border: none;
+      box-shadow: none;
+      background-color: #fff;
+      margin-top: 3px;
+      padding: 2px 0;
+    }
+    .flexcomplete-list li.flexcomplete-input input {
+      border: none;
+      /*height: 1.75em;*/
+      font-size: 1em;
+      line-height: 1.4em;
+      color: #555;
+      margin: 0;
+      outline: none;
+      padding: 0 0 1px 1px;
+      /*width: 1.75em; */
+      box-shadow: none;
+    }
+    </style>
+  </head>
+
+  <body>
+    <div class="ui-widget">
+      <input class="userid" id="userid-1" placeholder="placeholder-1" value="aaa">
+      <input class="userid" id="userid-2" placeholder="placeholder-2" value="">
+    </div>
+
+    <script src="./js/jquery-1.12.4.js"></script>
+    <script src="./js/jquery-ui.js"></script>
+    <script>
+    (function ($) {
+      "use strict";
+
+      $.widget("ui.flexcomplete", {
+
+        version: '0.0.1',
+
+        options: {
+          inputDelimiters: [',', ';', ' '],
+          outputDelimiter: ',',
+          allowDuplicates: false,
+          width: null,
+          maxLength: 1,
+          source: '',
+          placeholder: null,
+          renderer: null,
+          caseSensitiveDuplicates: false,
+        },
+
+        _buildValue () {
+          var value = '';
+
+          $.each(this._chosenValues, (k, v) => {
+            value += value.length ? this.options.outputDelimiter + v.value : v.value;
+          });
+
+          return value;
+        },
+
+        _setValue (value) {
+          var val = this.element.val();
+
+          if (val !== value) {
+            this.element.val(value);
+            this._trigger('change');
+          }
+        },
+
+        _createTag (name, key, klass) {
+          var className = klass ? ' class="' + klass + '"' : '';
+
+          if (name !== undefined) {
+            var icon = '';
+            $.each(this.options.source, (i, v) => {
+              if (v.value === name) {
+                icon = `<i class="icon"><img src="${v.icon}" width="16" height="16"></i>`;
+              }
+            });
+            return $(`<li ${className} data-flexcomplete-key="${key}">
+                        <span>${icon} ${name}</span>
+                        <a href="javascript:void(0);" class="ficon">&#x2716;</a>
+                      </li>`);
+          }
+        },
+
+        _removeTag (ev) {
+          var $closest = $(ev.currentTarget).closest('li'),
+              key = $closest.data('flexcomplete-key'),
+              widget = ev.data.widget || this,
+              index = false;
+
+          $.each(widget._chosenValues, (i, v) => {
+            (key === v.key) && (index = i);
+          });
+
+          (index !== false) && widget._chosenValues.splice(index, 1);
+
+          widget._setValue(widget._buildValue());
+
+          $closest.remove();
+          widget._resizeInput(ev);
+          widget.elements.input.focus();
+        },
+
+        _editTag (ev) {
+          var $closest = $(ev.currentTarget).closest('li'),
+              key = $closest.data('flexcomplete-key'),
+              widget = ev.data.widget || this,
+              tagName = '';
+
+          if (!key) {
+            return true;
+          }
+
+          ev.preventDefault();
+
+          $.each(widget._chosenValues, (i, v) => {
+            (key === v.key) && (tagName = v.value);
+          });
+
+          widget.elements.input.val(tagName);
+
+          widget._removeTag(ev);
+        },
+
+        _renderTags () {
+          this.elements.list.find('li:not(.flexcomplete-required)').remove();
+
+          $.each(this._chosenValues, (k, v) => {
+            var el = this._createTag(v.value, v.key);
+            this.elements.list.find('li.flexcomplete-input').before(el);
+          });
+        },
+
+        _setChosen (values) {
+          if (!$.isArray(values)) {
+            return false;
+          }
+
+          $.each(values, (k, v) => {
+            var exists = false;
+
+            v = $.trim(v);
+
+            $.each(this._chosenValues, (kk, vv) => {
+              if (this.options.caseSensitiveDuplicates) {
+                (vv.value === v) && (exists = true);
+              } else {
+                (vv.value.toLowerCase() === v.toLowerCase()) && (exists = true);
+              }
+            });
+
+            if ((v !== '') && (!exists || this.options.allowDuplicates)) {
+              this._chosenValues.push({
+                key: 'mi_' + Math.random().toString(16).slice(2, 10),
+                value: v,
+              });
+
+              this._renderTags();
+            }
+          });
+          this._setValue(this._buildValue());
+        },
+
+        _containsDelimiter (tags) {
+          var delim = false;
+
+          $.each(this.options.inputDelimiters, (k, v) => {
+            if (tags.indexOf(v) !== -1) {
+              delim = v;
+            }
+          });
+
+          return delim;
+        },
+
+        _autoCompleteMenuPosition () {
+          if (this.options.source) {
+            var widget = this.elements.input.data('ui-autocomplete');
+            widget && widget.menu.element.position({
+              of: this.elements.contr,
+              my: 'left top',
+              at: 'left bottom',
+              collision: 'none',
+            });
+          }
+        },
+
+        // select the previous tag or input if no more tags exist
+        _prevTag (ev) {
+          var tag = $(ev.currentTarget).closest('li'),
+              prev = tag.prev(),
+              widget = ev.data.widget || this;
+
+          if (prev.is('li')) {
+            prev.find('a').focus();
+          } else {
+            widget._focus();
+          }
+        },
+
+        // select the next tag or input if no more tags exist
+        _nextTag (ev) {
+          var tag = $(ev.currentTarget).closest('li'),
+              next = tag.next(),
+              widget = ev.data.widget || this;
+
+          if (next.is('li:not(.flexcomplete-input)')) {
+            next.find('a').focus();
+          } else {
+            widget._focus();
+          }
+        },
+
+        _resizeInput (ev) {
+          var widget = (ev && ev.data.widget) || this,
+              input = widget.elements.input,
+              maxWidth = widget.elements.list.width(),
+              val = input.val(),
+              textWidth = 25 + val.length * 8,
+              limitChose = (widget._chosenValues.length >= widget.options.maxLength);
+
+          input.width((textWidth < maxWidth) ? textWidth : maxWidth)
+               .css('visibility', limitChose ? 'hidden' : 'visible');
+          $('.flexcomplete-list').css('cursor', limitChose ? 'default' : 'pointer');
+          $('.flexcomplete-container__arrow').css('cursor', limitChose ? 'default' : 'pointer');
+        },
+
+        _resetPlaceholder () {
+          var placeholder = this.options.placeholder,
+              input = this.elements.input,
+              width = this.options.width || 'inherit';
+          if (placeholder && (this.element.val().length === 0)) {
+            input.attr('placeholder', placeholder).css('min-width', 'calc(' + width + ' - 50px)');
+          } else {
+            input.attr('placeholder', '').css('min-width', 'inherit');
+          }
+        },
+
+        _parseInput (ev) {
+          var widget = (ev && ev.data.widget) || this,
+              val,
+              delim = false,
+              values = [];
+
+          val = widget.elements.input.val();
+          val && (delim = widget._containsDelimiter(val));
+
+          if (delim !== false) {
+            values = val.split(delim);
+          } else if (!ev || (ev.which === $.ui.keyCode.ENTER
+                             && !$('.ui-menu-item.ui-state-focus').size()
+                             && !$('.ui-menu-item .ui-state-focus').size()
+                             && !$('#ui-active-menuitem').size())) {
+
+            values.push(val);
+            ev && ev.preventDefault();
+          } else if ((ev.type === 'blur')
+                      && !$('#ui-active-menuitem').size()) {
+
+            values.push(val);
+          }
+
+          if (values.length > 0) {
+            widget._setChosen(values);
+            widget.elements.input.val('');
+            widget._resizeInput();
+          }
+
+          widget._resetPlaceholder();
+        },
+
+        _inputFocus (ev) {
+          var widget = ev.data.widget || this;
+
+          widget.elements.input.value || (widget.options.source.length && widget.elements.input.autocomplete('search', ''));
+        },
+
+        // if our input contains no value and backspace has been pressed, select the last tag
+        _inputBackspace (ev) {
+          var widget = ev.data.widget || this,
+              tag = widget.elements.list.find('li:not(.flexcomplete-required):last');
+
+          ev.stopPropagation();
+
+          if ((!$(ev.currentTarget).val()
+               || (('selectionStart' in ev.currentTarget)
+                   && (ev.currentTarget.selectionStart === 0)
+                   && (ev.currentTarget.selectionEnd === 0)))
+              && tag.size()) {
+
+            ev.preventDefault();
+            tag.find('a').focus();
+          }
+        },
+
+        _inputKeypress (ev) {
+          var widget = ev.data.widget || this;
+
+          (ev.type === 'keyup') && widget._trigger('keyup', ev, widget);
+
+          switch (ev.which) {
+          case $.ui.keyCode.BACKSPACE:
+            (ev.type === 'keydown') && widget._inputBackspace(ev);
+            break;
+          case $.ui.keyCode.LEFT:
+            (ev.type === 'keydown') && widget._inputBackspace(ev);
+            break;
+          default:
+            widget._parseInput(ev);
+            widget._resizeInput(ev);
+            break;
+          }
+
+          // resposition autoComplete menu as <ul> grows and shrinks vertically
+          if (widget.options.source) {
+            setTimeout(() => {
+              widget._autoCompleteMenuPosition.call(widget);
+            }, 200);
+          }
+        },
+
+        _tagKeypress (ev) {
+          var widget = ev.data.widget;
+
+          switch (ev.which) {
+          case $.ui.keyCode.BACKSPACE:
+            ev.preventDefault();
+            ev.stopPropagation();
+            $(ev.currentTarget).trigger('click');
+            break;
+          case 69: // 'e'
+            widget._editTag(ev);
+            break;
+          case $.ui.keyCode.LEFT:
+            (ev.type === 'keydown') && widget._prevTag(ev);
+            break;
+          case $.ui.keyCode.RIGHT:
+            (ev.type === 'keydown') && widget._nextTag(ev);
+            break;
+          case $.ui.keyCode.DOWN:
+            (ev.type === 'keydown') && widget._focus(ev);
+            break;
+          }
+        },
+
+        _tagFocus (ev) {
+          $(ev.currentTarget).parent()[ev.type === 'focusout' ? 'removeClass' : 'addClass']
+              ('flexcomplete-selected');
+        },
+
+        _focus (ev) {
+          var widget = (ev && ev.data.widget) || this,
+              $closest = $(ev && ev.target).closest('li'),
+              $data = $closest.data('flexcomplete-key');
+
+          if (!ev || !$data) {
+            widget.elements.input.focus();
+          }
+        },
+
+        _installAutocomplete () {
+          if (this.options.source) {
+            var widget = this;
+
+            this.elements.input.autocomplete({
+              position: {
+                of: this.elements.contr
+              },
+              source: this.options.source,
+              minLength: 0,
+              select (ev, ui) {
+                ev.preventDefault();
+                widget.elements.input.val(ui.item.value);
+                widget._parseInput();
+              },
+              open () {
+                var menu = $(this).data('ui-autocomplete').menu;
+
+                menu.element.zIndex && menu.element.zIndex($(this).zIndex() + 1);
+                menu.element.width(widget.elements.list.outerWidth());
+              },
+            });
+          }
+          if (this.options.renderer) {
+            this.elements.input.autocomplete('instance')._renderItem = (ul, item) => {
+              var exists = false;
+              $.each(this._chosenValues, (k, v) => {
+                if (this.options.caseSensitiveDuplicates) {
+                  (v.value === item.value) && (exists = true);
+                } else {
+                  (v.value.toLowerCase() === item.value.toLowerCase()) && (exists = true);
+                }
+              });
+              if (exists && !this.options.allowDuplicates) {
+                return $();
+              }
+
+              return $('<li></li>')
+                .append(this.options.renderer.call(this, item))
+                .appendTo(ul);
+            }
+          }
+        },
+
+        _attachEvents () {
+          this.elements.input.on('keyup.flexcomplete',
+                                 {widget: this},
+                                 this._inputKeypress);
+          this.elements.input.on('keydown.flexcomplete',
+                                 {widget: this},
+                                 this._inputKeypress);
+          this.elements.input.on('change.flexcomplete',
+                                 {widget: this},
+                                 this._inputKeypress);
+          this.elements.input.on('focus.flexcomplete',
+                                 {widget: this},
+                                 this._inputFocus);
+          this.elements.input.on('blur.flexcomplete',
+                                 {widget: this},
+                                 this._parseInput);
+
+          this.elements.list.on('click.flexcomplete',
+                                 {widget: this},
+                                 this._focus);
+          this.elements.list.on('click.flexcomplete', 'a',
+                                 {widget: this},
+                                 this._removeTag);
+          this.elements.list.on('dblclick.flexcomplete', 'li',
+                                 {widget: this},
+                                 this._editTag);
+          this.elements.list.on('focus.flexcomplete', 'a',
+                                 {widget: this},
+                                 this._tagFocus);
+          this.elements.list.on('blur.flexcomplete', 'a',
+                                 {widget: this},
+                                 this._tagFocus);
+          this.elements.list.on('keydown.flexcomplete', 'a',
+                                 {widget: this},
+                                 this._tagKeypress);
+          this.elements.arrow.on('click.flexcomplete',
+                                 {widget: this},
+                                 this._focus);
+        },
+
+        _create () {
+          var els = {},
+              o = this.options,
+              placeholder = o.placeholder || this.element.attr('placeholder') || null;
+
+          this._chosenValues = [];
+
+          // Create the elements
+          els.contr = $('<span class="flexcomplete-container"></span>');
+          els.list= $('<ul class="flexcomplete-list"></ul>');
+          els.input = $('<input type="text" />');
+          els.inputEl = $('<li class="flexcomplete-input flexcomplete-required"></li>');
+          els.origInputEl = $('<li class="flexcomplete-input-hidden flexcomplete-required"></li>');
+          els.arrow = $('<span class="flexcomplete-container__arrow" role="presentation"><b role="presentation"></b></span>');
+
+          if (placeholder) {
+            o.placeholder = placeholder;
+            els.input.attr('placeholder', o.placeholder);
+            o.width && els.input.css('min-width', 'calc(' + o.width + ' - 50px)');
+          }
+
+          this.element.replaceWith(els.contr);
+          els.origInputEl.append(this.element).hide();
+
+          els.inputEl.append(els.input);
+          els.list.append(els.inputEl);
+          els.list.append(els.origInputEl);
+          els.contr.append(els.list);
+          els.contr.append(els.arrow);
+
+          o.width && els.contr.css('width', o.width);
+
+          this.elements = els;
+
+          this._attachEvents();
+
+          if ($.trim(this.element.val())) {
+            els.input.val(this.element.val());
+            this._parseInput();
+          }
+
+          this._installAutocomplete();
+        },
+
+        _destroy () {
+          this.elements.input.unbind('.flexcomplete');
+          this.elements.contr.replaceWith(this.element);
+        },
+
+        refresh () {
+          var delim = this.options.outputDelimiter,
+              val = this.element.val(),
+              values = [];
+
+          if (delim) {
+            values = val.split(delim);
+          } else {
+            values.push(val);
+          }
+
+          if (values.length) {
+            this._chosenValues = [];
+
+            this._setChosen(values);
+            this._renderTags();
+            this.elements.input.val('');
+            this._resizeInput();
+          }
+        }
+      });
+
+      $(".userid").flexcomplete({
+        width: '350px',
+        maxLength: 1,
+        source: [
+          {
+            value: 'aaa',
+            label: 'AAA',
+            icon: 'https://avatars1.githubusercontent.com/u/5069279?s=60&v=4',
+          },
+/*
+          {
+            value: 'bbb',
+            label: 'BBB',
+            icon: 'https://avatars1.githubusercontent.com/u/5069279?s=60&v=4',
+          },
+          {
+            value: 'abcdefg',
+            label: 'ABCDEFG',
+            icon: 'https://avatars1.githubusercontent.com/u/5069279?s=60&v=4',
+          },
+ */
+        ],
+        renderer (item) {
+          return $(`<div>
+                      <i class="icon"><img src="${item.icon}" width="20" height="20"></i>
+                      ${item.label}
+                    </div>`);
+        },
+      });
+    })(jQuery);
+    </script>
+  </body>
+</html>

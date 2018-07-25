@@ -1,1 +1,1 @@
-recursive-include autocomplete_provider/htdocs *
+recursive-include tracautocomplete/htdocs *

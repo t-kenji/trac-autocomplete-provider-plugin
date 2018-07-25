@@ -137,6 +137,7 @@ if (typeof jQuery === 'undefined') {
   };
 
   var uniqueId = 0;
+  var initializedEditors = [];
 
   function Completer(element, option) {
     this.$el        = $(element);
@@ -160,15 +161,21 @@ if (typeof jQuery === 'undefined') {
 
       // Special handling for CKEditor: lazy init on instance load
       if ((!this.option.adapter || this.option.adapter == 'CKEditor') && typeof CKEDITOR != 'undefined' && (this.$el.is('textarea'))) {
-        CKEDITOR.on("instanceReady", function(event) {
-          event.editor.once("focus", function(event2) {
-            // replace the element with the Iframe element and flag it as CKEditor
-            self.$el = $(event.editor.editable().$);
-            if (!self.option.adapter) {
-              self.option.adapter = $.fn.textcomplete['CKEditor'];
-            }
-            self.initialize();
-          });
+        CKEDITOR.on("instanceReady", function(event) { //For multiple ckeditors on one page: this needs to be executed each time a ckeditor-instance is ready.
+
+          if($.inArray(event.editor.id, initializedEditors) == -1) { //For multiple ckeditors on one page: focus-eventhandler should only be added once for every editor.
+            initializedEditors.push(event.editor.id);
+			
+            event.editor.on("focus", function(event2) {
+				//replace the element with the Iframe element and flag it as CKEditor
+				self.$el = $(event.editor.editable().$);
+				if (!self.option.adapter) {
+					self.option.adapter = $.fn.textcomplete['CKEditor'];
+				}
+				self.option.ckeditor_instance = event.editor; //For multiple ckeditors on one page: in the old code this was not executed when adapter was alread set. So we were ALWAYS working with the FIRST instance.
+              	self.initialize();
+            });
+          }
         });
       }
     }
@@ -1031,6 +1038,11 @@ if (typeof jQuery === 'undefined') {
       switch (clickEvent.keyCode) {
         case 9:  // TAB
         case 13: // ENTER
+        case 16: // SHIFT
+        case 17: // CTRL
+        case 18: // ALT
+        case 33: // PAGEUP
+        case 34: // PAGEDOWN
         case 40: // DOWN
         case 38: // UP
         case 27: // ESC
@@ -1256,10 +1268,12 @@ if (typeof jQuery === 'undefined') {
     // Dropdown's position will be decided using the result.
     _getCaretRelativePosition: function () {
       var range = this.el.ownerDocument.getSelection().getRangeAt(0).cloneRange();
+      var wrapperNode = range.endContainer.parentNode;
       var node = this.el.ownerDocument.createElement('span');
       range.insertNode(node);
       range.selectNodeContents(node);
       range.deleteContents();
+      setTimeout(function() { wrapperNode.normalize(); }, 0);
       var $node = $(node);
       var position = $node.offset();
       position.left -= this.$el.offset().left;
@@ -1272,8 +1286,9 @@ if (typeof jQuery === 'undefined') {
         var iframePosition = this.completer.$iframe.offset();
         position.top += iframePosition.top;
         position.left += iframePosition.left;
-        //subtract scrollTop from element in iframe
-        position.top -= this.$el.scrollTop(); 
+        // We need to get the scrollTop of the html-element inside the iframe and not of the body-element,
+        // because on IE the scrollTop of the body-element (this.$el) is always zero.
+        position.top -= $(this.completer.$iframe[0].contentWindow.document).scrollTop();
       }
       
       $node.remove();
@@ -1317,7 +1332,7 @@ if (typeof jQuery === 'undefined') {
   $.extend(CKEditor.prototype, $.fn.textcomplete.ContentEditable.prototype, {
     _bindEvents: function () {
       var $this = this;
-      CKEDITOR.instances["issue_notes"].on('key', function(event) {
+      this.option.ckeditor_instance.on('key', function(event) {
         var domEvent = event.data;
         $this._onKeyup(domEvent);
         if ($this.completer.dropdown.shown && $this._skipSearch(domEvent)) {

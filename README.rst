@@ -1,22 +1,24 @@
-Trac Autocomplete Provider
-==========================
+Trac Autocomplete Plugin
+========================
 
 Description
 -----------
 
-Autocomplete in textarea for trac implementing https://github.com/yuku-t/jquery-textcomplete
+This plugin extends autocompletion of users and keywords and more.
+
+Autocomplete in textarea for trac implementing https://github.com/yuku/textcomplete
 
 Install
 -------
 
 Run the following command::
 
-    pip install trac-autocomplete-provider-plugin
+    pip install git+https://github.com/t-kenji/trac-autocomplete-plugin.git
 
 Add the following to your trac conf::
 
     [components]
-    autocomplete_provider.* = enabled
+    tracautocomplete.* = enabled
 
 Usage
 -----

@@ -1,0 +1,32 @@
+.textcomplete-dropdown {
+    max-height: 300px;
+    overflow-y: scroll;
+    border: 1px solid #ddd;
+    background-color: white;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.textcomplete-dropdown li {
+    border: 1px solid transparent;
+    padding: 2px 5px;
+}
+
+.textcomplete-dropdown li img.icon {
+    width: 1.2em;
+    height: 1.2em;
+    margin: 0 0.15em;
+    vertical-align: text-bottom;
+}
+
+.textcomplete-dropdown li:hover,
+.textcomplete-dropdown .active {
+    background-color: #007fff;
+    border: 1px solid #003eff;
+    color: white;
+}
+
+.textcomplete-dropdown a:hover {
+    cursor: pointer;
+}
