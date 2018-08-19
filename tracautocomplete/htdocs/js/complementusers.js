@@ -515,19 +515,19 @@ $(() => {
       renderer: renderer,
     }).focus();
   });
-  $("input#field-reporter").flexcomplete({
+  $("input#field-reporter:text").flexcomplete({
     width: 'calc(100% - 4px)',
     inputDelimiters: [],
     source: complementusers,
     renderer: renderer,
   });
-  $("input#field-cc").flexcomplete({
+  $("input#field-cc:text").flexcomplete({
     width: 'calc(100% - 4px)',
     maxLength: 99,
     source: complementusers,
     renderer: renderer,
   });
-  $("input#action_create_and_assign_reassign_owner,input#action_reassign_reassign_owner").flexcomplete({
+  $("input#action_create_and_assign_reassign_owner:text,input#action_reassign_reassign_owner:text").flexcomplete({
     width: '195px',
     inputDelimiters: [],
     source: complementusers,
